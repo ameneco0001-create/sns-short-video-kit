@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SNSバズ系ショート動画作成キット 使い方</title>
+<style>
+  :root {
+    --bg:#faf8f4; --card:#ffffff; --text:#1f1d1a; --sub:#6b665e; --line:#e6e1d8;
+    --accent:#e0558a; --accent-soft:#fde8ef; --ok:#2e7d4f; --ok-soft:#e5f3ea; --warn:#a15c00; --warn-soft:#fff2dc; --say:#eef3fb; --say-line:#c9d8f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#171614; --card:#211f1c; --text:#efebe4; --sub:#a59e93; --line:#35322d;
+      --accent:#f07aa5; --accent-soft:#3a2230; --ok:#7fcf9c; --ok-soft:#1f3326; --warn:#f0b35c; --warn-soft:#3a2d17; --say:#1f2735; --say-line:#33445f;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif; line-height:1.8; font-size:16px; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 80px; }
+  header { padding:24px 0 8px; }
+  h1 { font-size:30px; margin:0 0 6px; letter-spacing:.02em; }
+  .lead { color:var(--sub); margin:0; }
+  nav { margin:24px 0 8px; display:flex; flex-wrap:wrap; gap:8px; }
+  nav a { font-size:14px; text-decoration:none; color:var(--text); background:var(--card); border:1px solid var(--line); border-radius:999px; padding:4px 14px; }
+  nav a:hover { border-color:var(--accent); }
+  section { margin-top:48px; }
+  h2 { font-size:22px; margin:0 0 16px; display:flex; align-items:center; gap:10px; }
+  h2 .no { display:inline-grid; place-items:center; width:32px; height:32px; border-radius:50%; background:var(--accent); color:#fff; font-size:16px; flex:none; }
+  h3 { font-size:17px; margin:24px 0 8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:12px 0; }
+  .steps { counter-reset:s; list-style:none; padding:0; margin:0; }
+  .steps > li { counter-increment:s; position:relative; padding:16px 18px 16px 60px; background:var(--card); border:1px solid var(--line); border-radius:14px; margin:10px 0; }
+  .steps > li::before { content:counter(s); position:absolute; left:18px; top:16px; width:28px; height:28px; border-radius:50%; background:var(--accent-soft); color:var(--accent); font-weight:700; display:grid; place-items:center; font-size:14px; }
+  .steps b { display:block; }
+  .say { background:var(--say); border:1px solid var(--say-line); border-radius:14px 14px 14px 4px; padding:8px 14px; margin:8px 0; display:inline-block; font-weight:600; }
+  .say::before { content:"あなた："; color:var(--sub); font-weight:400; font-size:13px; margin-right:4px; }
+  .note { border-radius:12px; padding:12px 16px; margin:12px 0; font-size:15px; }
+  .note.ok { background:var(--ok-soft); }
+  .note.warn { background:var(--warn-soft); }
+  .note strong { color:inherit; }
+  table { width:100%; border-collapse:collapse; font-size:15px; }
+  th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--sub); font-weight:600; font-size:13px; }
+  .tag { display:inline-block; font-size:12px; padding:1px 8px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-weight:700; white-space:nowrap; }
+  .tag.free { background:var(--ok-soft); color:var(--ok); }
+  .tag.opt { background:var(--line); color:var(--sub); }
+  code { font-family:ui-monospace,Menlo,monospace; font-size:.9em; background:var(--line); padding:1px 6px; border-radius:6px; }
+  ul.check { list-style:none; padding:0; }
+  ul.check li { padding-left:30px; position:relative; margin:8px 0; }
+  ul.check li::before { content:"□"; position:absolute; left:4px; color:var(--accent); font-weight:700; }
+  .flow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:14px; }
+  .flow span { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px; }
+  .flow i { color:var(--sub); font-style:normal; }
+  details { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin:8px 0; }
+  summary { cursor:pointer; font-weight:600; }
+  details p { margin:8px 0 0; }
+  .tabs { display:flex; gap:6px; margin:0 0 4px; }
+  .tab { font:inherit; font-size:15px; font-weight:600; cursor:pointer; padding:8px 18px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--sub); }
+  .tab[aria-selected="true"] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  footer { margin-top:56px; color:var(--sub); font-size:13px; }
+  @media (max-width:520px){ h1{font-size:25px;} .steps > li{padding-left:52px;} th:nth-child(3), td:nth-child(3){display:none;} }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>SNSバズ系ショート動画作成キット 使い方</h1>
+  <p class="lead">SNSの面白い文章投稿を、合成音声で読み上げて最後にツッコミを入れる縦型ショート動画（60秒以内）を作るキットです。<br>準備が終われば、AI（Claude Code または Codex）に<strong>「動画作って」</strong>と話しかけるだけで作れます。</p>
+  <div class="note warn" style="margin-top:20px">
+    <strong>はじめに：AI は「パソコンの上で直接動くもの」を使ってください</strong><br>
+    ・<strong>Claude アプリ</strong>なら、画面の上のほう（または左側）にある<strong>「Code」</strong>を押して使います。<br>
+    ・<strong>Codex</strong>なら、パソコンに入れた Codex アプリ（Web 版ではないもの）を使います。<br>
+    Claude アプリの「チャット」や「Cowork」、ブラウザの claude.ai、Web 版の Codex では、AI があなたのパソコンの外で動いているため、<strong>ソフトを入れたり動画を書き出したりできません</strong>（「セットアップを代わりに実行できませんでした」などと言われます）。
+  </div>
+</header>
+
+<nav>
+  <a href="#need">用意するもの</a><a href="#setup">はじめての準備</a><a href="#make">動画を作る</a><a href="#fix">直したいとき</a><a href="#publish">公開する前に</a><a href="#faq">困ったとき</a>
+</nav>
+
+<section id="need">
+  <h2><span class="no">1</span>用意するもの</h2>
+  <p>このzipの中には、動画を作る道具と手順書がすべて入っています。ただし、次のものは<strong>zipの外</strong>で用意が必要です。</p>
+  <table>
+    <tr><th>もの</th><th>必要？</th><th>どうやって用意する</th></tr>
+    <tr><td>パソコン</td><td><span class="tag">必須</span></td><td><strong>Mac</strong>（macOS 13 以降）か <strong>Windows</strong>（10 / 11）</td></tr>
+    <tr><td>Claude Code または Codex</td><td><span class="tag">必須</span></td><td>AI のアプリ。どちらか1つを自分で入れて、ログインしておく。<br><strong>Claude アプリなら「Code」タブ</strong>を使います（「チャット」や「Cowork」、ブラウザの claude.ai ではできません）</td></tr>
+    <tr><td>インターネット</td><td><span class="tag">必須</span></td><td>道具と背景の動画をダウンロードするため</td></tr>
+    <tr><td>VOICEVOX</td><td><span class="tag free">自動</span></td><td>無料の読み上げソフト。<strong>準備のときに入ります</strong></td></tr>
+    <tr><td>Ruby・ffmpeg</td><td><span class="tag free">自動</span></td><td>動画を作る道具。Mac は最初から入っています。Windows は準備のときに入ります</td></tr>
+    <tr><td>背景の動画</td><td><span class="tag free">自動</span></td><td>動画を作るときに、話に合うものを AI が無料素材サイト（Pexels）から探して入れます</td></tr>
+    <tr><td>Chrome か Edge</td><td><span class="tag opt">任意</span></td><td>あると書き出しが全自動に。Windows は Edge が最初から入っています。Mac でどちらもなければ、Safari でボタンを1回押せばOK</td></tr>
+  </table>
+  <div class="note ok">ダウンロードの前には、AI が<strong>「何を・どこから・どのくらいの大きさで」</strong>入れるかを必ず聞いてきます。勝手に入れることはありません。</div>
+</section>
+
+<section id="setup">
+  <h2><span class="no">2</span>はじめての準備（最初の1回だけ・約10分）</h2>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-os="mac">Mac の場合</button>
+    <button class="tab" role="tab" aria-selected="false" data-os="win">Windows の場合</button>
+  </div>
+  <ol class="steps os mac">
+    <li><b>zip を展開する</b>ダブルクリックすると「SNSバズ系ショート動画作成キット」フォルダができます。<br>フォルダは<strong>ホームフォルダ</strong>（家のマークの、自分の名前のフォルダ）に置いてください。<strong>デスクトップや書類フォルダは避けてください。</strong>iCloud で同期していると、ファイルがクラウドに移されて読めなくなったり、できた動画を AirDrop で送れなくなったりします。</li>
+    <li><b>AI でフォルダを開く</b>
+      <strong>Claude Code</strong>：Claude アプリの<strong>「Code」タブ</strong>で、フォルダを選ぶ画面から「SNSバズ系ショート動画作成キット」を選ぶ。<br>
+      <strong>Codex</strong>：アプリで「SNSバズ系ショート動画作成キット」フォルダを開く。ターミナルで使う場合は、フォルダに移動して <code>codex</code> と入力。</li>
+    <li><b>準備を頼む</b><span class="say">セットアップして</span><br>AI が道具がそろっているか調べます。VOICEVOX がなければ「ダウンロードしてよいですか？」と聞かれるので、OK と答えてください（約120MB）。<br>AI を使わずに準備したいときは「セットアップ（Mac）.command」をダブルクリック。<br>「開けません」と出たときは、<strong>システム設定 →「プライバシーとセキュリティ」</strong>を開き、下のほうの<strong>「このまま開く」</strong>を押してから、もう一度ダブルクリックします。</li>
+    <li><b>VOICEVOX の利用規約に同意する</b>VOICEVOX が初めて起動すると利用規約が出ます。読んで、<strong>自分で</strong>「同意」を押してください。<br>そのあと VOICEVOX は起動したままにしておきます（閉じると声が作れません）。</li>
+  </ol>
+  <ol class="steps os win" hidden>
+    <li><b>zip を展開する</b>zip を右クリック →「すべて展開」。「SNSバズ系ショート動画作成キット」フォルダができます。<br>フォルダは<strong>ユーザーフォルダ</strong>（C:\Users\自分の名前）に置いてください。OneDrive で同期しているデスクトップやドキュメントは避けてください（ファイルがクラウドに移されて読めなくなることがあります）。</li>
+    <li><b>「セットアップ（Windows）.bat」をダブルクリック</b>黒い画面が開き、足りない道具（Ruby・ffmpeg・VOICEVOX）を1つずつ「入れますか？」と聞いてきます。<strong>y</strong> と入力して Enter を押すと入ります。<br>
+      ・「Windows によって PC が保護されました」と出たら、「詳細情報」→「実行」<br>
+      ・途中で「同意しますか？」と聞かれたら、内容を読んで <strong>Y</strong> と入力<br>
+      ・VOICEVOX はインストーラーの画面が開くので、案内に従って進めて、利用規約に同意してください</li>
+    <li><b>AI でフォルダを開く</b>セットアップが終わってから、Claude アプリ（<strong>「Code」</strong>を押す）か Codex アプリを<strong>開き直して</strong>、「SNSバズ系ショート動画作成キット」フォルダを開きます（開き直さないと、新しく入れた道具が見つかりません）。</li>
+    <li><b>確認を頼む</b><span class="say">セットアップできているか確認して</span><br>「そろっています」と返ってきたら準備完了です。VOICEVOX は起動したままにしておきます。</li>
+  </ol>
+  <div class="note warn"><strong>Codex を使う場合：</strong>ダウンロードやアプリの起動のときに「実行してよいか」の確認が出ることがあります。内容を見て許可してください。</div>
+</section>
+
+<section id="make">
+  <h2><span class="no">3</span>動画を作る</h2>
+  <p>準備ができたら、AI にこう話しかけるだけです。投稿を自分で探す必要はありません。</p>
+  <div class="say">動画作って</div>
+  <h3>あとは AI が進めてくれます</h3>
+  <div class="flow"><span>ネタを探す</span><i>→</i><span>台本を作る</span><i>→</i><span>背景を探す</span><i>→</i><span>声を作る</span><i>→</i><span>書き出す</span><i>→</i><span>確認する</span></div>
+  <p>途中で AI が何度か質問してくるので、答えてください。</p>
+  <ol class="steps">
+    <li><b>ネタを選ぶ</b>AI がバズった投稿を探して、候補を3〜5個、番号つきで見せてくれます。<br><span class="say">1番で</span> のように選ぶか、<span class="say">おまかせ</span> と言えば、いちばん面白そうなものを AI が選びます。気に入るものがなければ <span class="say">ほかの候補も出して</span> と言ってください。</li>
+    <li><b>台本の確認</b>投稿の文章（原文のまま）と、最後のツッコミ3つの案を見せてくれます。気になるところがあれば、遠慮なく言ってください。</li>
+    <li><b>背景のダウンロードの確認</b>話に合う実写の動画（料理の話なら料理の映像など）を探して、ダウンロードしてよいか聞いてきます。</li>
+    <li><b>書き出し</b>動画の長さと同じくらいの時間がかかります（30秒の動画なら約30秒）。<br>
+      ・Windows、または Chrome / Edge がある Mac：自動で画面が開いて、録画が終わると閉じます<br>
+      ・Chrome も Edge もない Mac：Safari が開くので、「準備OK」と出たら<strong>「● 動画を書き出す」</strong>を押します</li>
+    <li><b>できあがり</b>音と通知でお知らせします。動画は<strong>「完パケ」フォルダ</strong>に入っています。</li>
+  </ol>
+  <div class="note warn"><strong>録画中は、その画面を隠したり最小化したりしないでください。</strong>隠れると動画がカクカクになるため、自動で保存を止めます。その場合はもう一度書き出してもらえば大丈夫です。</div>
+  <h3>使う投稿やテーマを決めたいとき</h3>
+  <p>「動画作って」のかわりに、こう頼むこともできます。</p>
+  <div class="say">この投稿で動画を作って https://x.com/…</div><br>
+  <div class="say">家族ネタで動画作って</div><br>
+  <div class="say">子どもの名言の投稿を2つつないで動画作って</div>
+</section>
+
+<section id="fix">
+  <h2><span class="no">4</span>直したいとき</h2>
+  <p>できた動画を見て、直したいところをそのまま伝えるだけでOKです。</p>
+  <table>
+    <tr><th>直したいこと</th><th>話しかけ方の例</th></tr>
+    <tr><td>読み方がおかしい</td><td><span class="say">「車登校」は「くるまとうこう」と読んで</span></td></tr>
+    <tr><td>ツッコミをもっと面白く</td><td><span class="say">ツッコミをもっと面白くして。投稿の言葉を拾って</span></td></tr>
+    <tr><td>長すぎる</td><td><span class="say">60秒以内に縮めて</span></td></tr>
+    <tr><td>声を変えたい</td><td><span class="say">7歳の子の声を別のキャラにして</span></td></tr>
+    <tr><td>背景を変えたい</td><td><span class="say">背景をもっと職場っぽい映像にして</span></td></tr>
+  </table>
+  <p>直したあとは AI が書き出し直して、同じ名前で「完パケ」に上書きします。</p>
+</section>
+
+<section id="publish">
+  <h2><span class="no">5</span>公開する前に（チェックリスト）</h2>
+  <div class="card">
+  <ul class="check">
+    <li><strong>元の投稿者に使用許可をもらった</strong>（お願いの例文：<code>資料/許可依頼文.md</code>）。許可のない投稿は公開しないでください</li>
+    <li><strong>概要欄に VOICEVOX のクレジットを書いた</strong>（使った声の名前が <code>作品/〈作品名〉/クレジット.txt</code> に書いてあります）</li>
+    <li>出典（投稿の URL・アカウント名）を概要欄にも書いた</li>
+    <li>誰かを傷つける内容になっていないか、最後に通しで見た</li>
+  </ul>
+  </div>
+</section>
+
+<section id="faq">
+  <h2><span class="no">6</span>困ったとき</h2>
+  <details><summary>「VOICEVOX に接続できません」と出る</summary><p>VOICEVOX が起動していません。アプリケーションフォルダから VOICEVOX を起動して、30秒ほど待ってから、もう一度頼んでください。</p></details>
+  <details><summary>動画がカクカクになった・保存されなかった</summary><p>録画中に画面が隠れていました。画面を表示したまま「もう一度書き出して」と頼んでください。</p></details>
+  <details><summary>「背景の素材がありません」と出る</summary><p>一度使った背景は、ほかの動画では使わないようになっています。「背景素材を追加して」と頼むと、新しく探してくれます。</p></details>
+  <details><summary>（Mac）AirDrop で動画が送れない</summary><p>キットのフォルダをデスクトップに置いていると、送れないことがありました。フォルダごとホームフォルダに移してみてください。</p></details>
+  <details><summary>AI に「セットアップを代わりに実行できませんでした」と言われた</summary><p>AI があなたのパソコンとは別の場所で動いています（Claude アプリの「チャット」や「Cowork」、ブラウザの claude.ai、Web 版の Codex など）。Claude アプリの<strong>「Code」タブ</strong>か、Codex アプリで、キットのフォルダを開き直してから「セットアップして」と頼んでください。</p></details>
+  <details><summary>（Mac）ファイルが読めない・とても遅い</summary><p>キットを「デスクトップ」や「書類」に置いていて、iCloud で同期しているとき、ファイルがクラウドに移されていることがあります。フォルダごと<strong>ホームフォルダ</strong>に移して、AI のアプリで開き直してください。</p></details>
+  <details><summary>（Mac）セットアップ（Mac）.command が開けない</summary><p>「開けません」「Apple は検証できませんでした」と出たら、<strong>システム設定 →「プライバシーとセキュリティ」</strong>を開き、下のほうに出ている<strong>「このまま開く」</strong>を押してから、もう一度ダブルクリックしてください（macOS 15 以降は、右クリック →「開く」では開けません）。AI に「セットアップして」と頼んでも同じことができます。</p></details>
+  <details><summary>（Windows）「ruby が見つかりません」と言われる</summary><p>「セットアップ（Windows）.bat」がまだか、セットアップのあとに AI のアプリを開き直していません。セットアップを終えてから、AI のアプリを閉じて開き直してください。</p></details>
+  <details><summary>（Windows）「winget が見つかりません」と出る</summary><p>Microsoft Store で「アプリ インストーラー」を入れる（または更新する）と使えるようになります。そのあと、もう一度「セットアップ（Windows）.bat」を実行してください。</p></details>
+  <details><summary>うまくいかない・エラーが出た</summary><p>画面に出た文字をそのまま AI に伝えてください。AI が原因を調べて直します。</p></details>
+</section>
+
+<section>
+  <h2><span class="no">7</span>フォルダの中身</h2>
+  <table>
+    <tr><th>名前</th><th>中身</th></tr>
+    <tr><td>完パケ</td><td>できあがった動画</td></tr>
+    <tr><td>作品</td><td>動画ごとの台本と声（「サンプル」は見本）</td></tr>
+    <tr><td>bg</td><td>背景の動画（最初は空。使うたびに追加されます）</td></tr>
+    <tr><td>資料</td><td>使用許可のお願いの例文</td></tr>
+    <tr><td>tools ・ render.html</td><td>動画を作る道具（触らなくて大丈夫です）</td></tr>
+    <tr><td>AGENTS.md ・ CLAUDE.md</td><td>AI 向けの作業手順（触らなくて大丈夫です）</td></tr>
+  </table>
+</section>
+
+<footer>声：VOICEVOX（各キャラクターの利用規約に従ってご利用ください）／背景素材：Pexels</footer>
+</main>
+<script>
+// Mac / Windows の切り替え（開いたパソコンに合わせて最初の表示を選ぶ）
+function showOS(os){
+  document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected', b.dataset.os===os));
+  document.querySelectorAll('.os').forEach(el=>el.hidden = !el.classList.contains(os));
+}
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showOS(b.dataset.os)));
+showOS(/Windows/i.test(navigator.userAgent) ? 'win' : 'mac');
+</script>
+</body>
+</html>

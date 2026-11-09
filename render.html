@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ショート動画 書き出し</title>
+<style>
+  body { background:#2a2a2a; color:#ddd; font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif; display:flex; flex-direction:column; align-items:center; gap:10px; padding:16px; margin:0; }
+  canvas { width:min(360px,100%); height:auto; border-radius:8px; background:#000; }
+  button { font:inherit; font-weight:700; padding:10px 20px; border:0; border-radius:22px; background:#ffd400; cursor:pointer; font-size:16px; }
+  #status { font-size:13px; max-width:600px; text-align:center; }
+</style>
+</head>
+<body>
+<canvas id="cv" width="1080" height="1920"></canvas>
+<div><button id="go">● 動画を書き出す</button> <button id="pv">▶ 確認再生</button></div>
+<div id="status">準備中…</div>
+<script>
+// ===== 文章ネタのショート動画 =====
+// 使い方：render.html?job=<作品フォルダ名>   （作品/<名前>/script.json を読み込む）
+//   auto=1 を付けると、準備ができしだい自動で書き出す（tools/export.rb が使う）
+// ・投稿の文章は原文どおりに表示し、声に合わせて区切りごとに出していく。話す人ごとに色を変える
+// ・投稿を読み終わったら、ツッコミを声に合わせて1つずつ出す（ポップ音つき）
+// ・背景は実写動画（bg/themes/<種類>）。投稿ごとに話に合う種類を使い、別の動画で使ったものは使わない
+const Q = new URLSearchParams(location.search), JOB = Q.get('job') || 'サンプル', AUTO = Q.get('auto') === '1';
+const JOB_DIR = '作品/' + encodeURIComponent(JOB) + '/';
+const W = 1080, H = 1920, LEAD = 0.1, POST_HOLD = 0.35, TAIL = 1.0;
+// 文字の形：Mac はヒラギノ、Windows は游ゴシック・メイリオ（絵文字は各OSの絵文字フォント）
+const FONT = '"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic","Meiryo","Apple Color Emoji","Segoe UI Emoji",sans-serif';
+const CARD_TOP = 200, CARD_BOTTOM = 1650, PAD = 48;
+const SWITCH = 5;                // 背景を切り替える間隔（秒）
+const BG_DARK = 0.25;            // 背景を少し暗くして、投稿を読みやすくする
+const CARD_SCALE = 0.86;         // 投稿カードの大きさ（1 だと余白なし）
+const CARD_Y = 230;              // カードの上端の位置
+const SAY_GAP = 0.04, PUNCH_BEFORE = 0.3, TSK_AFTER = 0.12;   // 間（秒）
+let S, SPEAKER, POSTS, OUT_NAME;
+
+const cv = document.getElementById('cv'), g = cv.getContext('2d');
+const st = t => document.getElementById('status').textContent = t;
+const report = msg => fetch('/status?job='+encodeURIComponent(JOB), { method:'POST', body:msg }).catch(()=>{});
+let ITEMS = [], total = 0, actx;
+const ease = p => 1-Math.pow(1-Math.min(1,Math.max(0,p)),3);
+function rr(x,y,w,h,r){ g.beginPath(); g.roundRect(x,y,w,h,r); }
+function drawImg(img,x,y,w,h){ const iw=img.videoWidth||img.width, ih=img.videoHeight||img.height; const s=Math.max(w/iw,h/ih), sw=w/s, sh=h/s; g.drawImage(img,(iw-sw)/2,(ih-sh)/2,sw,sh,x,y,w,h); }
+
+// ---- 台本（script.json）を、画面に出す順の部品にする ----
+function buildPosts(){
+  SPEAKER = Object.assign({ reader:{ color:'#111111' }, aside:{ color:'#8a8a8a' } }, S.speakers || {});
+  OUT_NAME = S.out || `文章ネタ_${JOB}.mp4`;
+  POSTS = S.posts.map((p,pi)=>({ user:p.user, src:p.src||'', bg:p.bg, page:p.page, hold:p.hold, items:[
+    ...p.lines.map((l,li)=>({ kind:'say', who:l.who||'reader', text:l.text, parts:l.parts, file:l.silent?null:`p${pi}_l${li}`, silent:l.silent?0:undefined })),
+    ...(p.tsukkomi||[]).map((t,ti)=>({ kind:'tsk', file:`p${pi}_t${ti}`, telop:t.text })),
+  ]}));
+  POSTS.forEach(p=>p.items.forEach(it=>{ if (it.kind==='say' && !SPEAKER[it.who]) throw new Error(`speakers に「${it.who}」がありません`); }));
+}
+
+function drawPost(post, items, t){
+  g.save(); g.shadowColor='rgba(0,0,0,.45)'; g.shadowBlur=40; g.shadowOffsetY=10;
+  g.fillStyle='#fff'; rr(0,CARD_TOP,W,CARD_BOTTOM-CARD_TOP,0); g.fill(); g.restore();
+  // 読み上げる区切り（parts）ごとに、読み始めた瞬間に表示していく
+  const shownText = it => { if(!it.parts) return it.text; const n = 1 + (it.breaks||[]).filter(b=>t>=it.start+b).length; return it.parts.slice(0,n).join(''); };
+  const runs = items.filter(it=>it.kind==='say' && t>=it.start).map(it=>({ text:shownText(it), color:SPEAKER[it.who].color, bold: it.who!=='reader' && it.who!=='aside' }));
+  g.save(); rr(0,CARD_TOP,W,CARD_BOTTOM-CARD_TOP,0); g.clip();
+  g.fillStyle='#d9d9d9'; g.beginPath(); g.arc(PAD+42, CARD_TOP+PAD+42, 42, 0, 7); g.fill();
+  g.textAlign='left'; g.textBaseline='middle'; g.fillStyle='#111'; g.font=`700 40px ${FONT}`; g.fillText(post.user, PAD+108, CARD_TOP+PAD+42);
+  const uw=g.measureText(post.user).width; g.fillStyle='#888'; g.font=`400 34px ${FONT}`; g.fillText('さんの投稿' + (post.page ? `（連投 ${post.page}）` : ''), PAD+108+uw+12, CARD_TOP+PAD+44);
+  // 話す人の色の見本（例：■上司）
+  let lx = PAD; g.font=`700 30px ${FONT}`;
+  [...new Set(items.filter(it=>it.kind==='say' && SPEAKER[it.who].label).map(it=>it.who))].forEach(w=>{ const s=SPEAKER[w]; g.fillStyle=s.color; g.fillRect(lx, CARD_TOP+PAD+112, 26, 26); g.fillStyle='#555'; g.fillText(s.label, lx+34, CARD_TOP+PAD+126); lx += 34 + g.measureText(s.label).width + 30; });
+  drawRuns(runs, PAD, CARD_TOP+PAD+170, W-PAD*2);
+  g.restore();
+}
+// 色の違う文字を、1つの段落として折り返しながら描く
+function drawRuns(runs, x0, y0, maxW){
+  const fs=56, lh=86; let x=x0, y=y0;
+  g.textBaseline='top'; g.textAlign='left';
+  runs.forEach(r=>{ g.font=`${r.bold?700:500} ${fs}px ${FONT}`; g.fillStyle=r.color;
+    for (const ch of r.text){ if (ch==='\n'){ x=x0; y+=lh; continue; } const w=g.measureText(ch).width; if (x+w>x0+maxW){ x=x0; y+=lh; } g.fillText(ch,x,y); x+=w; } });
+}
+function fitFont(lines, maxW, start){ let fs=start; g.font=`900 ${fs}px ${FONT}`; while(Math.max(...lines.map(l=>g.measureText(l).width))>maxW && fs>40){ fs-=2; g.font=`900 ${fs}px ${FONT}`; } return fs; }
+// ツッコミは、声が始まるたびに1つずつ追加で表示する（ages[i]：i番目が出てからの秒数。まだなら負）
+function drawTelopAll(lines, ages){
+  const R = cardRect(), fs = fitFont(lines, R.w-40*2-60, 66), bh = fs*1.5, gapY = 14;
+  const blockH = lines.length*bh + (lines.length-1)*gapY, y0 = R.y+R.h-36-blockH;
+  g.font=`900 ${fs}px ${FONT}`; g.textAlign='left'; g.textBaseline='middle'; g.lineWidth=6; g.strokeStyle='#000';
+  lines.forEach((l,i)=>{ const age=ages[i]; if (age<0) return;
+    const k = age<0.15 ? 0.8+ease(age/0.15)*0.2 : 1, a = Math.min(1, age/0.08);
+    const tw=g.measureText(l).width+56, x=R.x+40, y=y0+i*(bh+gapY);
+    g.save(); g.globalAlpha=a; g.translate(x, y+bh/2); g.scale(k,k); g.translate(-x, -(y+bh/2));
+    g.fillStyle='#fff'; g.fillRect(x,y,tw,bh); g.strokeRect(x,y,tw,bh); g.fillStyle='#000'; g.fillText(l,x+28,y+bh/2+3);
+    g.restore(); });
+}
+function cardRect(){ return { x: W*(1-CARD_SCALE)/2, y: CARD_Y, w: W*CARD_SCALE, h: (CARD_BOTTOM-CARD_TOP)*CARD_SCALE }; }
+const SRC_Y = 1700;
+function drawSrc(src){ if (!src) return; g.font=`400 28px ${FONT}`; g.textAlign='left'; g.textBaseline='middle'; const t='出典: '+src, w=g.measureText(t).width+32; g.fillStyle='rgba(0,0,0,.6)'; rr(PAD-16,SRC_Y-26,w,52,10); g.fill(); g.fillStyle='#ddd'; g.fillText(t,PAD,SRC_Y); }
+
+function render(t){
+  let pi=0; POSTS.forEach((p,i)=>{ if(t>=p.items[0].start-0.05) pi=i; });
+  const post=POSTS[pi], items=post.items;
+  const slide = pi>0 ? 1-ease((t-(items[0].start-0.3))/0.3) : 0;   // 次の投稿は右からスライド
+  drawBg(t);
+  g.save(); if(slide>0) g.translate(W*slide,0);
+  g.save(); g.translate(W*(1-CARD_SCALE)/2, CARD_Y - CARD_TOP*CARD_SCALE); g.scale(CARD_SCALE, CARD_SCALE);
+  drawPost(post, items, t);
+  g.restore();
+  const tsks = items.filter(it=>it.kind==='tsk');
+  if (tsks.length && t>=tsks[0].start) drawTelopAll(tsks.map(it=>it.telop), tsks.map(it=>t-it.start));
+  drawSrc(post.src);
+  g.restore();
+}
+
+// ---- 背景動画 ----
+const bgVideos = {}; let BG_PLAN = [], BG_CLIPS = [], bgCur = -1, bgPrepared = -1, bgLast = null;
+async function loadBg(n){
+  // ファイルを丸ごと読み込んでから再生する（ローカルのサーバーで途中読み込みが失敗するのを避ける）
+  const r = await fetch('bg/'+n.split('/').map(encodeURIComponent).join('/')); if(!r.ok) throw new Error('背景動画がありません：'+n);
+  const url = URL.createObjectURL(await r.blob());
+  return new Promise((res,rej)=>{ const v=document.createElement('video'); v.muted=true; v.playsInline=true; v.loop=true; v.preload='auto'; v.src=url; v.oncanplaythrough=()=>{ v.oncanplaythrough=null; res(bgVideos[n]=v); }; v.onerror=()=>rej(new Error('背景動画を読み込めません：'+n)); v.load(); });
+}
+// 投稿ごとに、その話に合う素材（bg/themes/<bg>）の中から、まだ使っていないものをランダムに選ぶ
+async function chooseBgClips(){
+  BG_CLIPS = []; BG_PLAN = [];
+  for (let pi=0; pi<POSTS.length; pi++){
+    const p = POSTS[pi], s = pi===0 ? 0 : p.items[0].start-0.3, e = pi+1<POSTS.length ? POSTS[pi+1].items[0].start-0.3 : total;
+    const L = await (await fetch('/bg_theme?name='+encodeURIComponent(p.bg||'')+'&video='+encodeURIComponent(OUT_NAME),{cache:'no-store'})).json();
+    if (!L.unused.length) throw new Error(`背景「${p.bg}」の素材がありません（bg/themes/${p.bg} に、まだ使っていない動画を入れてください）`);
+    const n = Math.min(Math.ceil((e-s)/SWITCH), L.unused.length);   // 足りないときは、1本あたりを長めに流す
+    const a = [...L.unused]; for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+    a.slice(0,n).forEach((c,k)=>{ BG_CLIPS.push(c); BG_PLAN.push({ clip:c, start:s+k*(e-s)/n, len:(e-s)/n }); });
+  }
+  await Promise.all([...new Set(BG_CLIPS)].map(loadBg));
+  BG_PLAN.forEach(p=>{ const v=bgVideos[p.clip]; p.offset=Math.random()*Math.max(0, v.duration-p.len-0.3); });
+}
+function bgSlot(t){ let i=0; BG_PLAN.forEach((p,k)=>{ if (t>=p.start) i=k; }); return i; }
+function syncBg(t, playing){
+  const i=bgSlot(t), p=BG_PLAN[i], v=bgVideos[p.clip];
+  if (i!==bgCur){
+    Object.values(bgVideos).forEach(x=>{ if(x!==v) x.pause(); });
+    if (bgPrepared!==i) v.currentTime=p.offset+(t-p.start);   // 頭出し済みなら、そのまま再生（黒い画面を出さない）
+    if (playing) v.play();
+    bgCur=i; bgPrepared=-1;
+  }
+  // 次の動画を、切り替わる1秒前に頭出ししておく
+  if (playing && i+1<BG_PLAN.length && bgPrepared!==i+1 && BG_PLAN[i+1].start-t < 1.0){
+    const n=BG_PLAN[i+1], nv=bgVideos[n.clip]; if (nv!==v){ nv.pause(); nv.currentTime=n.offset; bgPrepared=i+1; }
+  }
+}
+function drawBg(t){
+  const v=bgVideos[BG_PLAN[bgSlot(t)].clip];
+  // 新しい動画の準備ができるまでは、直前の映像を出し続ける（真っ暗にしない）
+  if (v.readyState>=2 && !v.seeking){ drawImg(v, 0, 0, W, H); bgLast=v; }
+  else if (bgLast) drawImg(bgLast, 0, 0, W, H);
+  else { g.fillStyle='#000'; g.fillRect(0,0,W,H); }
+  g.fillStyle=`rgba(0,0,0,${BG_DARK})`; g.fillRect(0,0,W,H);
+}
+const waitSeek = v => new Promise(r=>{ if(v.seeking||v.readyState<2){ const f=()=>{ v.removeEventListener('seeked',f); v.removeEventListener('canplay',f); r(); }; v.addEventListener('seeked',f); v.addEventListener('canplay',f); setTimeout(f,3000); } else r(); });
+async function prepareStart(){ bgCur=-1; bgPrepared=-1; const p=BG_PLAN[0], v=bgVideos[p.clip]; v.pause(); v.currentTime=p.offset; await waitSeek(v); bgPrepared=0; bgLast=v; render(0); }
+async function previewAt(t){ bgCur=-1; bgPrepared=-1; syncBg(t,false); const v=bgVideos[BG_PLAN[bgSlot(t)].clip]; await waitSeek(v); render(t); }
+window.previewAt = previewAt;
+
+// ---- 効果音（その場で合成。BGMは入れない）----
+function sePop(dest, at, vol=0.2){ const o=actx.createOscillator(), e=actx.createGain(); o.type='sine'; o.frequency.setValueAtTime(600,at); o.frequency.exponentialRampToValueAtTime(1300,at+0.07); e.gain.setValueAtTime(vol,at); e.gain.exponentialRampToValueAtTime(0.0001,at+0.13); o.connect(e).connect(dest); o.start(at); o.stop(at+0.2); }
+
+async function init(){
+  const r = await fetch(JOB_DIR+'script.json',{cache:'no-store'}); if(!r.ok) throw new Error(`作品/${JOB}/script.json がありません`);
+  S = await r.json(); buildPosts(); document.title = `書き出し：${JOB}`;
+  await document.fonts.load(`900 92px ${FONT}`);
+  actx = new AudioContext();
+  ITEMS = POSTS.flatMap(p=>p.items);
+  await Promise.all(ITEMS.map(async it => {
+    if (it.parts) it.text = it.parts.join('');
+    if(!it.file) return; const r=await fetch(JOB_DIR+'audio/'+it.file+'.wav',{cache:'no-store'}); if(!r.ok) throw new Error('声がありません：'+it.file+'（ruby tools/voices.rb '+JOB+' を実行してください）'); it.buf=await actx.decodeAudioData(await r.arrayBuffer());
+    const j = await fetch(JOB_DIR+'audio/'+it.file+'.json',{cache:'no-store'}); if (j.ok) it.breaks = (await j.json()).breaks;
+    if (it.parts && (it.breaks||[]).length !== it.parts.length-1) console.warn('区切りの数が合いません：', it.file, it.breaks, it.parts);
+  }));
+  let t=LEAD;
+  POSTS.forEach((p,pi)=>{ if(pi>0) t+=p.hold ?? POST_HOLD; p.items.forEach((it,i)=>{ it.start=t; it.dur=it.buf?it.buf.duration:it.silent;
+    const next=p.items[i+1]; const gap = !next ? 0 : it.kind==='say' && next.kind!=='say' ? PUNCH_BEFORE : it.kind!=='say' ? TSK_AFTER : SAY_GAP;
+    t+=it.dur+gap; }); });
+  total = t + TAIL;
+  await chooseBgClips();
+  const sayItems = POSTS[0].items.filter(it=>it.kind==='say');
+  await previewAt(sayItems[Math.min(4, sayItems.length-1)].start+0.5);
+  st(`準備OK：長さ ${total.toFixed(1)} 秒${total>60?'（60秒を超えています）':''}（背景：${BG_PLAN.map(p=>p.clip.split('/').pop()).join(' → ')}）`);
+  window.READY = true;
+}
+function playThrough(dest){
+  const t0 = actx.currentTime + 0.05;
+  ITEMS.forEach(it=>{ if (it.buf){ const s=actx.createBufferSource(); s.buffer=it.buf; s.connect(dest); s.start(t0+it.start); } });
+  ITEMS.filter(x=>x.kind==='tsk').forEach(x=>sePop(dest, t0+x.start+0.03, 0.25));   // ツッコミが出る瞬間のポップ音
+  window.FRAMES = 0;
+  return new Promise(res=>{ const loop=()=>{ window.FRAMES++; const t=actx.currentTime-t0; syncBg(Math.max(0,t), true); render(Math.max(0,t)); if(t<total) requestAnimationFrame(loop); else { Object.values(bgVideos).forEach(v=>v.pause()); res(); } }; loop(); });
+}
+let busy = false;
+async function exportVideo(){
+  if (busy) return; busy = true;
+  try {
+    await actx.resume();
+    if (actx.state !== 'running') throw new Error('音を出す許可がありません。画面の「● 動画を書き出す」を押してください');
+    const dest = actx.createMediaStreamDestination();
+    const stream = new MediaStream([...cv.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
+    // ブラウザごとに使える形式が違うので、使えるものを順に探す（Chrome・Safari の両方に対応）
+    const cands = ['video/mp4;codecs=avc1.640028,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4;codecs="avc1.42E01E, mp4a.40.2"','video/mp4','video/webm;codecs=vp9,opus','video/webm'];
+    const type = cands.find(c=>{ try { return MediaRecorder.isTypeSupported(c); } catch(e){ return false; } });
+    const rec = type ? new MediaRecorder(stream, { mimeType:type, videoBitsPerSecond:8_000_000 }) : new MediaRecorder(stream);
+    const chunks=[]; rec.ondataavailable=e=>{ if(e.data && e.data.size) chunks.push(e.data); }; const done=new Promise(r=>rec.onstop=r);
+    await prepareStart();
+    st('書き出し中…（実時間で再生しながら録画します。この画面を隠さないでください）');
+    rec.start(1000); await playThrough(dest); rec.stop(); await done;
+    // 1秒あたりのコマ数が少なすぎるときは、画面が隠れていた（カクカクの動画になる）ので保存しない
+    const fps = window.FRAMES/total;
+    if (fps < 20) throw new Error(`書き出し中にブラウザ画面が隠れていたため、動画がカクカクになりました（1秒あたり${fps.toFixed(1)}コマ）。保存していません。画面を表示したまま、もう一度書き出してください`);
+    const mime = rec.mimeType || type || 'video/mp4';
+    const blob=new Blob(chunks,{type:mime});
+    if (!blob.size) throw new Error('録画データが空でした');
+    const r = await fetch('/save?job='+encodeURIComponent(JOB)+'&ext='+(mime.includes('webm')?'webm':'mp4')+'&name='+encodeURIComponent(OUT_NAME)+'&clips='+encodeURIComponent(JSON.stringify(BG_CLIPS)),{method:'POST',body:blob});
+    const msg = await r.text();
+    if (!r.ok) throw new Error(msg);
+    st(`保存しました：${msg}（${(blob.size/1e6).toFixed(1)} MB）`);
+  } catch(e) {
+    const m = 'エラー：'+(e && e.message || e); st(m); report(m); console.error(e);
+  } finally { busy = false; }
+}
+document.getElementById('go').onclick = () => exportVideo();
+document.getElementById('pv').onclick = async () => { await actx.resume(); await prepareStart(); playThrough(actx.destination); };
+window.renderAt = render; window.exportVideo = exportVideo;
+init().then(()=>{ if (AUTO) exportVideo(); }).catch(e=>{ const m='エラー：'+e.message; st(m); report(m); });
+</script>
+</body>
+</html>

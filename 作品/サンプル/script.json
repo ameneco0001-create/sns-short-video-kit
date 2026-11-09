@@ -1,0 +1,29 @@
+{
+  "out": "文章ネタ_サンプル.mp4",
+  "pace": 11,
+  "speakers": {
+    "reader":  { "color": "#111111", "voice": "青山龍星/ノーマル" },
+    "me":      { "color": "#c2185b", "label": "私", "voice": "青山龍星/ノーマル" },
+    "husband": { "color": "#1565c0", "label": "夫", "voice": "玄野武宏/ノーマル" }
+  },
+  "tsukkomi_voice": "ずんだもん/ノーマル",
+  "posts": [
+    {
+      "user": "sample_user",
+      "src": "サンプル（架空の投稿です）",
+      "bg": "home",
+      "lines": [
+        { "who": "reader",  "text": "夫に" },
+        { "who": "me",      "text": "「牛乳買ってきて」" },
+        { "who": "reader",  "parts": ["と頼んだら、", "牛乳パックの形をした貯金箱を買ってきた。\n"] },
+        { "who": "husband", "text": "夫「ちゃんと牛乳って書いてあるやん」\n", "yomi": "ちゃんと牛乳って書いてあるやん" },
+        { "who": "reader",  "text": "書いてあるけど、中身は小銭なんよ" }
+      ],
+      "tsukkomi": [
+        { "text": "牛乳頼んで貯金箱が来た！" },
+        { "text": "中身、乳製品ちゃうやん！" },
+        { "text": "でも貯まったら牛乳買えるな！", "voice": "ずんだもん/ツンツン" }
+      ]
+    }
+  ]
+}
